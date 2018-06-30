@@ -1,0 +1,8 @@
+*.NRLIB
+*.erlib
+*~
+*.aux
+*.blg
+*.gz
+*.log
+*.toc
