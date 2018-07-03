@@ -125,3 +125,11 @@ setMethod("displayEV", signature(obj = "schroed", n = "numeric"),
 # eigenvalues: plot(1:hosc@N,rev(hosc@ev))
 # plot(1:hosc@N,rev(hosc@ev),type="h")
 # plot(1:30,rev(hosc@ev)[1:30],type="h")
+
+# V=function(x){as.integer(abs(x) < 4)*(-10)}
+# pot=schroed(100,V)
+# displayEV(pot,201)
+# displayEV(pot,197)
+# pot@ev -- bound states?
+
+
