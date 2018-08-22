@@ -6,3 +6,14 @@
 *.gz
 *.log
 *.toc
+/code.pdf
+/omt.bib
+/pics.pdf
+/qmtrans.aux
+/qmtrans.bbl
+/qmtrans.blg
+/qmtrans.log
+/qmtrans.pdf
+/qmtrans.synctex.gz
+/qmtrans.tex
+/qmtrans.toc

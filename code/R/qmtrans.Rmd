@@ -1,0 +1,263 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Transference Plans and Uncertainty
+https://arxiv.org/abs/1808.05710
+
+
+```{r}
+source('C:/Users/kfp/Desktop/work/R/qmtrans.R')
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+### Phase space grid `psgrid`
+Let $M$ be a positive integer, then `psgrid(M)` creates a (S4) instance of a 2-dimensional $(x,k)$ grid with $N\times N$ points $(x_i,k_i)$, where $i=1,\ldots,N=2M+1$. Note that we set $p=\hbar k$, then $k$ has a dimension of *inverse length* (wavenumber). 
+
+```
+N ................ Number of points (=2*M+1) 
+L ................ Length, L=N*dx
+dx ............... x-spacing
+dk ............... k-spacing
+x ................ x-points x[1],...,x[N] (x[M]=0)
+k ................ k-points k[1],...,k[N] (k[M]=0)
+deMoivreNumber ... exp(2*pi*i/N)
+ucdftMatrix ...... Unitary centered discrete Fourier transform (matrix)
+dftv ............. dftv(v) -> ucdft of vector v
+dftf ............. dftf(f) -> ucdft of vector f
+idftv ............ idftv(v) -> inverse ucdft of vector v
+idftf ............ idftf(f) -> inverse ucdft of function f
+eval ............. eval(f) -> evaluate function f at x[1..N]
+evplot ........... evplot(f) -> eval(f) and plot the resulting vector
+plotv ............ plotv(v) -> plot vector v
+show ............. show() -> display/plot the grid
+```
+
+#### Example M=10
+
+```{r}
+g=psgrid(10)
+g@show()
+```
+
+```{r}
+crlf="\n"
+cat("Grid parameters",crlf,
+  "Number of points ...... :",g@N,crlf,
+  "Length L .............. :",g@L,crlf,
+  "x-spacing dx .......... :",g@dx,crlf,
+  "k-spacing dx .......... :",g@dk,crlf,
+  "DeMoivre number ....... :",g@deMoivreNumber,crlf)
+```
+
+
+```{r}
+g@evplot(sin)
+```
+
+### Schroedinger equation: `schroed1d`
+The one dimensional Schroedinger equation 
+\begin{equation}
+  - \frac{\hbar^2}{2m} \frac{d^2\,\psi(x)}{dx^2}+V(x)\,\psi(x)=E\psi(x) 
+\end{equation}
+is solved on a `psgrid` using the matrix representation of 
+$H(x,\hbar k)$:
+\[ H_{i j} = V_i \delta_{i j} + \frac{h^2}{8 \pi mN}  \left\{ \begin{array}{l}
+     \frac{N^2 - 1}{6}, i = j\\
+     (- 1)^{(i - j)}  \frac{\cos \left( \frac{\pi (i - j)}{N}
+     \right) }{\sin \left( \frac{\pi (i - j)}{N} \right)^2}, i \neq j
+\end{array} \right. . \]
+
+An instance of `schroed1d(M,V,h=2*sqrt(2)*pi,m=1)` will contain the following parameters and methods:
+
+```
+V ................ The potential V as function or vector
+h ................ Planck constant, default: h=2*sqrt(2)*pi
+m ................ Particle mass m, default: m=1
+H ................ The Hamilton matrix H
+ev ............... List of eigenvalues such that H v = ev[i] v 
+EV ............... Eigenvectors as columns of matrix EV
+plotEigVec ....... Plot eigenvector j (lowest for j=N).
+contains psgrid .. inherits psgrid(M)
+```
+
+#### Example 1: Harmonic Oscillator
+
+The potential function $V(x)=x^2$ together with units and parameters $m=1$, such that $\hbar^2=2m$ yields - as is well known and easy to establish - the eigenvalues
+\begin{equation}
+   E_j = 2 j +1, j=0,1,2,\ldots
+\end{equation}
+that is the odd positive integers with the *Hermite functions*
+as eigenfunctions:
+
+\begin{equation}
+\psi_n(x) = \left (2^n n! \sqrt{\pi} \right )^{-\frac12} e^{-\frac{x^2}{2}} H_n(x) = (-1)^n \left (2^n n! \sqrt{\pi} \right)^{-\frac12} e^{\frac{x^2}{2}} \frac{\mathrm d^n}{\mathrm dx^n} e^{-x^2}
+\end{equation}
+
+```{r}
+hosc=schroed1d(100,function(x){x^2})
+```
+
+The first 20 eigenvalues are (as expected):
+```{r}
+rev(hosc@ev)[1:20]
+```
+
+The last 10 (of the 201) are not so precise anymore:
+```{r}
+hosc@ev[1:10]
+```
+
+```{r}
+par(mfrow=c(2,2))
+hosc@plotEigVec(hosc@N)
+hosc@plotEigVec(hosc@N-1)
+hosc@plotEigVec(hosc@N-2)
+hosc@plotEigVec(hosc@N-3)
+```
+
+Let us compare the plots above with the first four Hermite functions:
+
+```{r}
+par(mfrow=c(2,2))
+nop=hosc@evplot(function(x){pi^(-1/4)*exp(-x^2/2)})
+nop=hosc@evplot(function(x){sqrt(2)*x*pi^(-1/4)*exp(-x^2/2)})
+nop=hosc@evplot(function(x){(2*x^2-1)/sqrt(2)*pi^(-1/4)*exp(-x^2/2)})
+nop=hosc@evplot(function(x){(2*x^3-3*x)/sqrt(3)*pi^(-1/4)*exp(-x^2/2)})
+```
+
+**Note**: we see that the Hermite functions above are not normalized.
+In order to compare them, we have to normalize the resulting `eval` vector:
+
+```{r}
+psi0=function(x){pi^(-1/4)*exp(-x^2/2)}
+v0=hosc@eval(psi0)
+v0=v0/sqrt(sum(v0*v0))
+phi0=hosc@EV[,hosc@N]
+par(mfrow=c(1,2))
+hosc@plotEigVec(hosc@N)
+hosc@plotv(v0)
+```
+```{r}
+df=phi0-v0
+sum(df*Conj(df))
+```
+
+
+#### Example 2: The finite potential well 
+
+```{r}
+V=function(x){as.integer(abs(x) < 4)*(-10)}
+fpw=schroed1d(100,V)
+par(mfrow=c(2,2))
+vp=fpw@evplot(V)
+fpw@plotEigVec(fpw@N)
+fpw@plotEigVec(fpw@N-1)
+fpw@plotEigVec(fpw@N-2)
+```
+The bound states, for instance, can be listed as follows:
+```{r}
+fpw@ev[fpw@ev<0]
+```
+That is we have $9$ negative eigenvalues (out of the 201). The theoretical number of bound states is
+\[
+   N_b=\lceil \sqrt{\frac{ m l^2 V_0}{2 h^2}} \rceil 
+\]
+thus we calculate 
+```{r}
+ceiling(sqrt(1*8^2*10)/pi)
+```
+
+as expected ;-)
+
+#### Example 3: $V(x)=cosh(x)*(cosh(x)-1)$
+
+```{r}
+V3=function(x){cosh(x)*(cosh(x)-1)}
+ex3=schroed1d(50,V3)
+par(mfrow=c(2,2))
+vp=ex3@evplot(V3)
+ex3@plotEigVec(ex3@N)
+ex3@plotEigVec(ex3@N-1)
+ex3@plotEigVec(ex3@N-2)
+```
+
+### Kantorovich energy `kantorovich`
+
+The Kantorovich energy of a state $\phi$ is given by
+\begin{equation}
+     E_K(\phi)=\inf_{\gamma\in\Gamma(\phi)} \int H d\gamma
+\end{equation}
+In the discrete case the optimal $\gamma$ is a sparse matrix
+with (at most) $2N-1$ positive entries (out of $N^2$). The
+$\gamma$-plots show the level sets  (support).
+
+An instance of `kantorovich(M,H,phi)` will contain the following parameters and methods:
+
+
+```
+H ................. Hamilton function H(x,p)
+phi ............... Wave function phi(x)
+mu ................ Measure mu(x)
+nu ................ Measure nu(k)
+HM ................ Hamilton matrix H_ij=H(x_i,p_i)
+ES ................ Schroedinger energy
+EK ................ Kantorovich energy
+prodMeasure ....... Product measure mu#nu
+transfPlan ........ Transference plan (as comes from "transport")
+gamma ............. Measure gamma(x,k) corresponding to transfPlan
+display ........... Display results
+contains .......... Inherit from psgrid
+```
+
+#### Example 1: $H(x,k)=k^2+x^2$
+
+```{r}
+H1=function(x,k){x^2+k^2}
+K1=kantorovich(50,H1,function(x){exp(-x^2/2)})
+```
+
+
+```{r}
+K1@display()
+```
+```{r}
+K1@ES
+K1@EK
+```
+
+#### Example 2: $H(x,k)=x^2*k^2$
+
+```{r}
+H2=function(x,k){x^2*k^2}
+K2=kantorovich(50,H2,function(x){exp(-x^2/2)})
+```
+
+```{r}
+K2@display()
+```
+```{r}
+K2@ES
+K2@EK
+```
+
+
+
+#### Example 3
+
+```{r}
+K3=kantorovich(20,H2,function(x){1/(1+x^2)})
+K3@display()
+```
+```{r}
+K3@ES
+K3@EK
+```

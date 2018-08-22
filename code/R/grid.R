@@ -1,3 +1,5 @@
+library(transport)
+
 setClass("grid", slots = 
   list(N  = "numeric",
        L  = "numeric",
@@ -133,3 +135,110 @@ setMethod("displayEV", signature(obj = "schroed", n = "numeric"),
 # pot@ev -- bound states?
 
 
+setGeneric("checkEV",
+           function(obj)
+             standardGeneric("checkEV"))
+
+setMethod("checkEV", signature(obj = "schroed"),
+          function(obj){
+            s=0
+            for (n in 1:obj@N)
+            {s=s+norm(obj@H%*%obj@EV[,n]-obj@ev[n]*obj@EV[,n])}
+            return(s)}
+)
+
+# checkEV(hosc) 
+
+hamiltonMatrix0 = function(H,g) {
+  n = g@N
+  M = matrix(0,n,n)
+  for (i in 1:n) {
+    for (j in 1:n) {
+      M[i,j]=H(g@x[i],g@k[j])
+    }
+  }
+  return(M)}
+
+#> HM=hamiltonMatrix0(H,g) -- better see below
+
+hamiltonMatrix = function(H,g) {outer(g@x,g@k,FUN=H)}
+  
+func2vector = function(f,g) {f(g@x)}
+
+#> f0=function(x){sin(x)}
+#> v=func2vector(f0,g)
+#> plot(g@x,v,type="l")
+
+# HM=hamiltonMatrix(H,g)
+# persp(g@x,g@k,HM)
+
+
+setClass("kantorovich", slots =
+           list(H = "function",
+                phi = "function",
+                mu = "numeric",
+                nu = "numeric",
+                HM = "matrix",
+                EK = "numeric"),
+         contains = "grid")
+
+kantorovich = function(M,H,phi) {
+  g = grid(M)
+  N = g@N
+  if (is.function(phi)) {v=phi(g@x)} else {v=as.vector(phi)}
+  if (is.function(H)) {HM=outer(g@x,g@k,FUN=H)} else {HM=as.matrix(H)}
+  v = v/sqrt(sum(v*Conj(v)))
+  w = g@ucdftMatrix %*% v
+  mu = v*Conj(v)
+  nu = w*Conj(w)
+  new("kantorovich",g,H=H,phi=phi,mu=as.numeric(mu),nu=as.numeric(nu),
+      HM=as.matrix(HM))
+  }
+
+# NOTE: grid g must be added in 'new' if inheritance is wished
+# H=function(x,k){x^2+k^2}
+# K=kantorovich(20,H,function(x){exp(-x^2)})
+#> plot(K@x,K@mu,type="l")
+#> plot(K@k,K@nu,type="l")
+# EK=K@nu %*% (K@HM %*% K@mu)  #TODO
+# 
+#> pm=K@mu %*% t(K@nu)  ## product measure
+#> persp(K@x,K@k,pm)    ## plot it 3d
+#> contour(K@x,K@k,pm)  ## contour
+#> contour(K@x,K@k,pm,nlevels=8,xlim=range(-1,1),ylim=range(-3,3))
+#> contour(K@x,K@k,pm,nlevels=4,xlim=range(-3,3),ylim=range(-3,3))
+
+K=kantorovich(60,H,function(x){exp(-x^2/2)})
+T=transport(K@mu,K@nu,K@HM,method="revsimplex")
+
+gammaM = function(N,T) {
+  gm=matrix(0,N,N)
+  mm=length(T$from)
+  for (i in 1:mm) {
+    gm[T$from[i],T$to[i]]=T$mass[i]
+  }
+  return(gm)
+}
+   
+gamma=gammaM(K@N,T)      
+# length(gamma[gamma>0]) # n+m-1 
+# contour(K@x,K@k,gamma)
+#> contour(K@x,K@k,gamma,nlevels=8,xlim=range(-1,1),ylim=range(-3,3))
+#> contour(K@x,K@k,gamma,nlevels=8,xlim=range(-2,2),ylim=range(-3,3))
+#> sum(apply(gamma, 1, sum))
+#[1] 1
+#> sum(apply(gamma, 2, sum))
+#[1] 1
+# sum(abs(apply(gamma, 1, sum)-K@mu))
+
+#> sum(diag(t(K@HM) %*% gamma))
+#[1] 1
+
+transp <- matrix(0,K@N,K@N)
+transp[cbind(T$from,T$to)] <- T$mass
+rownames(transp) <- paste(ifelse(nchar(K@mu)==2," ",""),K@mu,sep="")
+colnames(transp) <- paste(ifelse(nchar(K@nu)==2," ",""),K@nu,sep="")
+#print(transp)
+
+#contour(K@x,K@k,transp,nlevels=12,xlim=range(-2,2),ylim=range(-3,3))
+#sum(diag(t(K@HM) %*% t(transp))) ---> 1
